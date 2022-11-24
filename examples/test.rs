@@ -1,8 +1,9 @@
-use epub_builder::EpubBuilder;
+use epub_builder::Builder;
+use epub_builder::Element;
 use epub_builder::EpubContent;
+use epub_builder::MetadataKind;
 use epub_builder::ReferenceType;
 use epub_builder::Result;
-use epub_builder::TocElement;
 use epub_builder::ZipLibrary;
 
 use std::env;
@@ -30,10 +31,10 @@ fn run() -> Result<()> {
     let _writer = File::create(_out_file).unwrap();
 
     // Create a new EpubBuilder using the zip library
-    EpubBuilder::new(ZipLibrary::new()?)?
+    Builder::new(ZipLibrary::new()?)?
         // Set some metadata
-        .metadata("author", "Joan Doe")?
-        .metadata("title", "Dummy Book <T>")?
+        .metadata(MetadataKind::Author, "Joan Doe")
+        .metadata(MetadataKind::Title, "Dummy Book <T>")
         // Set the stylesheet (create a "stylesheet.css" file in EPUB that is used by some generated files)
         .stylesheet(dummy_css.as_bytes())?
         // Add a image cover file
@@ -62,7 +63,7 @@ fn run() -> Result<()> {
         .add_content(
             EpubContent::new("chapter_2.xhtml", dummy_content.as_bytes())
                 .title("Chapter 2 <T>")
-                .child(TocElement::new("chapter_2.xhtml#1", "Chapter 2, section 1")),
+                .child(Element::new("chapter_2.xhtml#1", "Chapter 2, section 1")),
         )?
         // Add a section. Since its level is set to 2, it will be attached to the previous chapter.
         .add_content(

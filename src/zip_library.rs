@@ -3,6 +3,7 @@
 // this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::zip::Zip;
+use crate::Result;
 
 use std::fmt;
 use std::io;
@@ -11,8 +12,7 @@ use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 
-use eyre::Context;
-use eyre::Result;
+use color_eyre::eyre::Context;
 use libzip::write::FileOptions;
 use libzip::CompressionMethod;
 use libzip::ZipWriter;
@@ -39,7 +39,9 @@ impl ZipLibrary {
     /// Creates a new wrapper for zip library
     ///
     /// Also add mimetype at the beginning of the EPUB file.
-    pub fn new() -> Result<ZipLibrary> {
+    ///
+    /// # Errors
+    pub fn new() -> Result<Self> {
         let mut writer = ZipWriter::new(Cursor::new(vec![]));
         writer.set_comment(""); // Fix issues with some readers
 
@@ -53,7 +55,7 @@ impl ZipLibrary {
             .write(b"application/epub+zip")
             .wrap_err("could not write mimetype in epub")?;
 
-        Ok(ZipLibrary { writer })
+        Ok(Self { writer })
     }
 }
 

@@ -20,12 +20,13 @@
 //! # Example
 //!
 //! ```rust
-//! use epub_builder::EpubBuilder;
+//! use epub_builder::Builder;
 //! use epub_builder::Result;
 //! use epub_builder::ZipLibrary;
 //! use epub_builder::EpubContent;
 //! use epub_builder::ReferenceType;
-//! use epub_builder::TocElement;
+//! use epub_builder::Element;
+//! use epub_builder::MetadataKind;
 //!
 //! use std::io::Write;
 //!
@@ -38,10 +39,10 @@
 //!     let mut output = Vec::<u8>::new();
 //!
 //!     // Create a new EpubBuilder using the zip library
-//!     EpubBuilder::new(ZipLibrary::new()?)?
+//!     Builder::new(ZipLibrary::new()?)?
 //!     // Set some metadata
-//!         .metadata("author", "Joan Doe")?
-//!         .metadata("title", "Dummy Book")?
+//!         .metadata(MetadataKind::Author, "Joan Doe")
+//!         .metadata(MetadataKind::Title, "Dummy Book")
 //!     // Set the stylesheet (create a "stylesheet.css" file in EPUB that is used by some generated files)
 //!         .stylesheet(dummy_css.as_bytes())?
 //!     // Add a image cover file
@@ -63,7 +64,7 @@
 //!     // Add a second chapter; this one has more toc information about its internal structure
 //!         .add_content(EpubContent::new("chapter_2.xhtml", dummy_content.as_bytes())
 //!                      .title("Chapter 2")
-//!                      .child(TocElement::new("chapter_2.xhtml#1", "Chapter 2, section 1")))?
+//!                      .child(Element::new("chapter_2.xhtml#1", "Chapter 2, section 1")))?
 //!     // Add a section. Since its level is set to 2, it will be attached to the previous chapter.
 //!         .add_content(EpubContent::new("section.xhtml", dummy_content.as_bytes())
 //!                      .title("Chapter 2, section 2")
@@ -128,6 +129,8 @@
 //! This is free software, published under the [Mozilla Public License,
 //! version 2.0](https://www.mozilla.org/en-US/MPL/2.0/).
 #![deny(missing_docs)]
+#![warn(clippy::pedantic, clippy::nursery)]
+#![allow(clippy::too_many_lines, clippy::similar_names)]
 
 mod common;
 mod epub;
@@ -143,12 +146,13 @@ mod zip_command_or_library;
 #[cfg(feature = "zip-library")]
 mod zip_library;
 
-pub use epub::EpubBuilder;
-pub use epub::EpubVersion;
+pub use epub::Builder;
+pub use epub::MetadataKind;
+pub use epub::Version;
 pub use epub_content::EpubContent;
 pub use epub_content::ReferenceType;
+pub use toc::Element;
 pub use toc::Toc;
-pub use toc::TocElement;
 #[cfg(feature = "zip-command")]
 pub use zip_command::ZipCommand;
 #[cfg(feature = "zip-command")]
@@ -158,4 +162,4 @@ pub use zip_command_or_library::ZipCommandOrLibrary;
 pub use zip_library::ZipLibrary;
 
 /// Re-exports the result type used across the library.
-pub use eyre::Result;
+pub use color_eyre::Result;

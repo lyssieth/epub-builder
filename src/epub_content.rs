@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with
 // this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::TocElement;
+use crate::Element;
 
 use std::io::Read;
 
@@ -11,8 +11,8 @@ use std::io::Read;
 /// Used by the guide section of EPUB 2.0 and the lankmarks navigation section
 /// for EPUB 3.0.
 ///
-/// For more information, see http://www.idpf.org/epub/20/spec/OPF_2.0.1_draft.htm#Section2.3
-/// and https://idpf.github.io/epub-vocabs/structure/
+/// For more information, see <http://www.idpf.org/epub/20/spec/OPF_2.0.1_draft.htm#Section2.3>
+/// and <https://idpf.github.io/epub-vocabs/structure/>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReferenceType {
     /// The Book cover(s) (this refers to the cover PAGE, not the cover IMAGE)
@@ -54,12 +54,12 @@ pub enum ReferenceType {
 /// Represents a XHTML file that can be added to an EPUB document.
 ///
 /// This struct is designed to be used with the `add_content` method
-/// of the `[EpubBuilder](struct.EpubBuilder.html).
+/// of the [`EpubBuilder`](struct.EpubBuilder.html).
 ///
 /// # Example
 ///
 /// ```
-/// use epub_builder::{EpubContent, TocElement};
+/// use epub_builder::{EpubContent, Element};
 ///
 /// let page_content = "Some XHTML content";
 ///
@@ -68,13 +68,13 @@ pub enum ReferenceType {
 /// // ... and sets a title so it is added to the TOC
 ///     .title("Introduction")
 /// // ... and add some toc information on the document structure
-///     .child(TocElement::new("intro.xhtml#1", "Section 1"))
-///     .child(TocElement::new("intro.xhtml#2", "Section 2"));
+///     .child(Element::new("intro.xhtml#1", "Section 1"))
+///     .child(Element::new("intro.xhtml#2", "Section 2"));
 /// ```
 #[derive(Debug)]
 pub struct EpubContent<R: Read> {
     /// The title and url, plus sublevels
-    pub toc: TocElement,
+    pub toc: Element,
     /// The content
     pub content: R,
     /// Properties. See [EpubProperties](enum.EpubProperties.html)
@@ -82,33 +82,37 @@ pub struct EpubContent<R: Read> {
 }
 
 impl<R: Read> EpubContent<R> {
-    /// Creates a new EpubContent
+    /// Creates a new `EpubContent`
     ///
     /// By default, this element is at level 1, and it has no title
     /// (meaning it won't be added to the [`Table of Contents`](struct.Toc.html).
     pub fn new<S: Into<String>>(href: S, content: R) -> Self {
-        EpubContent {
+        Self {
             content,
-            toc: TocElement::new(href, ""),
+            toc: Element::new(href, ""),
             reftype: None,
         }
     }
 
     /// Set the title of this content. If no title is set,
     /// this part of the book will not be displayed in the table of content.
+    #[must_use]
     pub fn title<S: Into<String>>(mut self, title: S) -> Self {
         self.toc.title = title.into();
         self
     }
 
     /// Set the level
+    #[must_use]
+    #[allow(clippy::missing_const_for_fn)]
     pub fn level(mut self, level: i32) -> Self {
         self.toc = self.toc.level(level);
         self
     }
 
     /// Adds a sublevel to the toc
-    pub fn child(mut self, elem: TocElement) -> Self {
+    #[must_use]
+    pub fn child(mut self, elem: Element) -> Self {
         self.toc = self.toc.child(elem);
         self
     }
@@ -117,7 +121,7 @@ impl<R: Read> EpubContent<R> {
     ///
     /// If this is set, this will list this item as a reference in the guide section.
     ///
-    /// See www.idpf.org/epub/20/spec/OPF_2.0.1_draft.htm#Section2.3
+    /// See `<www.idpf.org/epub/20/spec/OPF_2.0.1_draft.htm#Section2.3>`
     ///
     /// # Example
     ///
@@ -130,7 +134,8 @@ impl<R: Read> EpubContent<R> {
     ///      .title("Title")
     ///      .reftype(ReferenceType::TitlePage);
     /// ```
-    pub fn reftype(mut self, reftype: ReferenceType) -> Self {
+    #[must_use]
+    pub const fn reftype(mut self, reftype: ReferenceType) -> Self {
         self.reftype = Some(reftype);
         self
     }

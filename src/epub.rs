@@ -3,7 +3,7 @@
 // this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::templates;
-use crate::toc::{Toc, TocElement};
+use crate::toc::{Element, Toc};
 use crate::zip::Zip;
 use crate::ReferenceType;
 use crate::{common, EpubContent};
@@ -12,7 +12,8 @@ use std::io;
 use std::io::Read;
 use std::path::Path;
 
-use eyre::{bail, Context, Result};
+use color_eyre::eyre::Context;
+use color_eyre::Result;
 use mustache::MapBuilder;
 
 /// Represents the EPUB version.
@@ -20,7 +21,7 @@ use mustache::MapBuilder;
 /// Currently, this library supports EPUB 2.0.1 and 3.0.1.
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Eq)]
-pub enum EpubVersion {
+pub enum Version {
     /// EPUB 2.0.1 format
     V20,
     /// EPUB 3.0.1 format
@@ -42,8 +43,8 @@ struct Metadata {
 
 impl Metadata {
     /// Create new default metadata
-    pub fn new() -> Metadata {
-        Metadata {
+    pub fn new() -> Self {
+        Self {
             title: String::new(),
             author: vec![],
             lang: String::from("en"),
@@ -69,12 +70,12 @@ struct Content {
 
 impl Content {
     /// Create a new content file
-    pub fn new<S1, S2>(file: S1, mime: S2) -> Content
+    pub fn new<S1, S2>(file: S1, mime: S2) -> Self
     where
         S1: Into<String>,
         S2: Into<String>,
     {
-        Content {
+        Self {
             file: file.into(),
             mime: mime.into(),
             itemref: false,
@@ -92,19 +93,20 @@ impl Content {
 /// the EPUB file by calling the `generate` method.
 ///
 /// ```
-/// use epub_builder::EpubBuilder;
+/// use epub_builder::Builder;
 /// use epub_builder::ZipCommand;
+/// use epub_builder::MetadataKind;
 /// use std::io;
 ///
 /// // "Empty" EPUB file
-/// let mut builder = EpubBuilder::new(ZipCommand::new().unwrap()).unwrap();
-/// builder.metadata("title", "Empty EPUB").unwrap();
-/// builder.metadata("author", "Ann 'Onymous").unwrap();
+/// let mut builder = Builder::new(ZipCommand::new().unwrap()).unwrap();
+/// builder.metadata(MetadataKind::Title, "Empty EPUB");
+/// builder.metadata(MetadataKind::Author, "Ann 'Onymous");
 /// builder.generate(&mut io::stdout()).unwrap();
 /// ```
 #[derive(Debug)]
-pub struct EpubBuilder<Z: Zip> {
-    version: EpubVersion,
+pub struct Builder<Z: Zip> {
+    version: Version,
     zip: Z,
     files: Vec<Content>,
     metadata: Metadata,
@@ -113,11 +115,34 @@ pub struct EpubBuilder<Z: Zip> {
     inline_toc: bool,
 }
 
-impl<Z: Zip> EpubBuilder<Z> {
+/// Epub Builder Metadata Kinds
+#[derive(Debug, Clone, Copy)]
+pub enum MetadataKind {
+    /// Author
+    Author,
+    /// Title
+    Title,
+    /// Language
+    Lang,
+    /// Generator
+    Generator,
+    /// Table of Contents name
+    TocName,
+    /// Subject
+    Subject,
+    /// Description
+    Description,
+    /// License
+    License,
+}
+
+impl<Z: Zip> Builder<Z> {
     /// Create a new default EPUB Builder
-    pub fn new(zip: Z) -> Result<EpubBuilder<Z>> {
-        let mut epub = EpubBuilder {
-            version: EpubVersion::V20,
+    ///
+    /// # Errors
+    pub fn new(zip: Z) -> Result<Self> {
+        let mut epub = Self {
+            version: Version::V20,
             zip,
             files: vec![],
             metadata: Metadata::new(),
@@ -141,8 +166,8 @@ impl<Z: Zip> EpubBuilder<Z> {
     /// Supported versions are:
     ///
     /// * `V20`: EPUB 2.0.1
-    /// * 'V30`: EPUB 3.0.1
-    pub fn epub_version(&mut self, version: EpubVersion) -> &mut Self {
+    /// * `V30`: EPUB 3.0.1
+    pub fn epub_version(&mut self, version: Version) -> &mut Self {
         self.version = version;
         self
     }
@@ -164,14 +189,14 @@ impl<Z: Zip> EpubBuilder<Z> {
     /// * `subject`;
     /// * `description`;
     /// * `license`.
-
-    pub fn metadata<S1, S2>(&mut self, key: S1, value: S2) -> Result<&mut Self>
+    ///
+    /// # Panics
+    pub fn metadata<S1>(&mut self, key: MetadataKind, value: S1) -> &mut Self
     where
-        S1: AsRef<str>,
-        S2: Into<String>,
+        S1: Into<String>,
     {
-        match key.as_ref() {
-            "author" => {
+        match key {
+            MetadataKind::Author => {
                 let value = value.into();
                 if value.is_empty() {
                     self.metadata.author = vec![];
@@ -179,10 +204,10 @@ impl<Z: Zip> EpubBuilder<Z> {
                     self.metadata.author.push(value);
                 }
             }
-            "title" => self.metadata.title = value.into(),
-            "lang" => self.metadata.lang = value.into(),
-            "generator" => self.metadata.generator = value.into(),
-            "description" => {
+            MetadataKind::Title => self.metadata.title = value.into(),
+            MetadataKind::Lang => self.metadata.lang = value.into(),
+            MetadataKind::Generator => self.metadata.generator = value.into(),
+            MetadataKind::Description => {
                 let value = value.into();
                 if value.is_empty() {
                     self.metadata.description = vec![];
@@ -190,7 +215,7 @@ impl<Z: Zip> EpubBuilder<Z> {
                     self.metadata.description.push(value);
                 }
             }
-            "subject" => {
+            MetadataKind::Subject => {
                 let value = value.into();
                 if value.is_empty() {
                     self.metadata.subject = vec![];
@@ -198,11 +223,11 @@ impl<Z: Zip> EpubBuilder<Z> {
                     self.metadata.subject.push(value);
                 }
             }
-            "license" => self.metadata.license = Some(value.into()),
-            "toc_name" => self.metadata.toc_name = value.into(),
-            s => bail!("invalid metadata '{}'", s),
+            MetadataKind::License => self.metadata.license = Some(value.into()),
+            MetadataKind::TocName => self.metadata.toc_name = value.into(),
         }
-        Ok(self)
+
+        self
     }
 
     /// Sets stylesheet of the EPUB.
@@ -210,6 +235,8 @@ impl<Z: Zip> EpubBuilder<Z> {
     /// This content will be written in a `stylesheet.css` file; it is used by
     /// some pages (such as nav.xhtml), you don't have use it in your documents though it
     /// makes sense to also do so.
+    ///
+    /// # Errors
     pub fn stylesheet<R: Read>(&mut self, content: R) -> Result<&mut Self> {
         self.add_resource("stylesheet.css", content, "text/css")?;
         self.stylesheet = true;
@@ -226,10 +253,8 @@ impl<Z: Zip> EpubBuilder<Z> {
     /// at the beginning, if you call it after, it will be at the end.
     pub fn inline_toc(&mut self) -> &mut Self {
         self.inline_toc = true;
-        self.toc.add(TocElement::new(
-            "toc.xhtml",
-            self.metadata.toc_name.as_str(),
-        ));
+        self.toc
+            .add(Element::new("toc.xhtml", self.metadata.toc_name.as_str()));
         let mut file = Content::new("toc.xhtml", "application/xhtml+xml");
         file.reftype = Some(ReferenceType::Toc);
         file.title = self.metadata.toc_name.clone();
@@ -253,6 +278,8 @@ impl<Z: Zip> EpubBuilder<Z> {
     ///   e.g. `data/image_0.png`
     /// * `content`: the resource to include
     /// * `mime_type`: the mime type of this file, e.g. "image/png".
+    ///
+    /// # Errors
     pub fn add_resource<R, P, S>(&mut self, path: P, content: R, mime_type: S) -> Result<&mut Self>
     where
         R: Read,
@@ -274,6 +301,8 @@ impl<Z: Zip> EpubBuilder<Z> {
     /// This works similarly to adding the image as a resource with the `add_resource`
     /// method, except, it signals it in the Manifest section so it is displayed as the
     /// cover by Ereaders
+    ///
+    /// # Errors
     pub fn add_cover_image<R, P, S>(
         &mut self,
         path: P,
@@ -298,27 +327,27 @@ impl<Z: Zip> EpubBuilder<Z> {
     /// # Examples
     ///
     /// ```
-    /// # use epub_builder::{EpubBuilder, ZipLibrary, EpubContent};
+    /// # use epub_builder::{Builder, ZipLibrary, EpubContent};
     /// let content = "Some content";
-    /// let mut builder = EpubBuilder::new(ZipLibrary::new().unwrap()).unwrap();
+    /// let mut builder = Builder::new(ZipLibrary::new().unwrap()).unwrap();
     /// // Add a chapter that won't be added to the Table of Contents
     /// builder.add_content(EpubContent::new("intro.xhtml", content.as_bytes())).unwrap();
     /// ```
     ///
     /// ```
-    /// # use epub_builder::{EpubBuilder, ZipLibrary, EpubContent, TocElement};
-    /// # let mut builder = EpubBuilder::new(ZipLibrary::new().unwrap()).unwrap();
+    /// # use epub_builder::{Builder, ZipLibrary, EpubContent, Element};
+    /// # let mut builder = Builder::new(ZipLibrary::new().unwrap()).unwrap();
     /// # let content = "Some content";
     /// // Sets the title of a chapter so it is added to the Table of contents
     /// // Also add information about its structure
     /// builder.add_content(EpubContent::new("chapter_1.xhtml", content.as_bytes())
     ///                      .title("Chapter 1")
-    ///                      .child(TocElement::new("chapter_1.xhtml#1", "1.1"))).unwrap();
+    ///                      .child(Element::new("chapter_1.xhtml#1", "1.1"))).unwrap();
     /// ```
     ///
     /// ```
-    /// # use epub_builder::{EpubBuilder, ZipLibrary, EpubContent};
-    /// # let mut builder = EpubBuilder::new(ZipLibrary::new().unwrap()).unwrap();
+    /// # use epub_builder::{Builder, ZipLibrary, EpubContent};
+    /// # let mut builder = Builder::new(ZipLibrary::new().unwrap()).unwrap();
     /// # let content = "Some content";
     /// // Add a section, by setting the level to 2 (instead of the default value 1)
     /// builder.add_content(EpubContent::new("section.xhtml", content.as_bytes())
@@ -333,6 +362,8 @@ impl<Z: Zip> EpubBuilder<Z> {
     ///
     /// * [`EpubContent`](struct.EpubContent.html)
     /// * the `add_resource` method, to add other resources in the EPUB file.
+    ///
+    /// # Errors
     pub fn add_content<R: Read>(&mut self, content: EpubContent<R>) -> Result<&mut Self> {
         self.zip.write_file(
             Path::new("OEBPS").join(content.toc.url.as_str()),
@@ -356,12 +387,14 @@ impl<Z: Zip> EpubBuilder<Z> {
     /// # Example
     ///
     /// ```
-    /// # use epub_builder::{EpubBuilder, ZipLibrary};
-    /// let mut builder = EpubBuilder::new(ZipLibrary::new().unwrap()).unwrap();
+    /// # use epub_builder::{Builder, ZipLibrary};
+    /// let mut builder = Builder::new(ZipLibrary::new().unwrap()).unwrap();
     /// // Write the EPUB file into a Vec<u8>
     /// let mut epub: Vec<u8> = vec!();
     /// builder.generate(&mut epub).unwrap();
     /// ```
+    ///
+    /// # Errors
     pub fn generate<W: io::Write>(&mut self, to: W) -> Result<()> {
         // If no styleesheet was provided, generate a dummy one
         if !self.stylesheet {
@@ -387,6 +420,8 @@ impl<Z: Zip> EpubBuilder<Z> {
     }
 
     /// Render content.opf file
+    ///
+    /// # Errors
     fn render_opf(&mut self) -> Result<Vec<u8>> {
         log::debug!("render_opf...");
         let mut optional: Vec<String> = Vec::new();
@@ -413,7 +448,7 @@ impl<Z: Zip> EpubBuilder<Z> {
                 to_id(&content.file)
             };
             let properties = match (self.version, content.cover) {
-                (EpubVersion::V30, true) => "properties=\"cover-image\" ",
+                (Version::V30, true) => "properties=\"cover-image\" ",
                 _ => "",
             };
             if content.cover {
@@ -433,7 +468,11 @@ impl<Z: Zip> EpubBuilder<Z> {
                 itemrefs.push(format!("<itemref idref=\"{id}\"/>", id = id));
             }
             if let Some(reftype) = content.reftype {
-                use crate::ReferenceType::*;
+                use crate::ReferenceType::{
+                    Acknowledgements, Bibliography, Colophon, Copyright, Cover, Dedication,
+                    Epigraph, Foreword, Glossary, Index, Loi, Lot, Notes, Preface, Text, TitlePage,
+                    Toc,
+                };
                 let reftype = match reftype {
                     Cover => "cover",
                     TitlePage => "title-page",
@@ -490,8 +529,8 @@ impl<Z: Zip> EpubBuilder<Z> {
 
         let mut content = vec![];
         let res = match self.version {
-            EpubVersion::V20 => templates::v2::CONTENT_OPF.render_data(&mut content, &data),
-            EpubVersion::V30 => templates::v3::CONTENT_OPF.render_data(&mut content, &data),
+            Version::V20 => templates::v2::CONTENT_OPF.render_data(&mut content, &data),
+            Version::V30 => templates::v3::CONTENT_OPF.render_data(&mut content, &data),
         };
 
         res.wrap_err("could not render template for content.opf")?;
@@ -520,10 +559,14 @@ impl<Z: Zip> EpubBuilder<Z> {
     fn render_nav(&mut self, numbered: bool) -> Result<Vec<u8>> {
         let content = self.toc.render(numbered);
         let mut landmarks: Vec<String> = Vec::new();
-        if self.version > EpubVersion::V20 {
+        if self.version > Version::V20 {
             for file in &self.files {
                 if let Some(ref reftype) = file.reftype {
-                    use ReferenceType::*;
+                    use ReferenceType::{
+                        Acknowledgements, Bibliography, Colophon, Copyright, Cover, Dedication,
+                        Epigraph, Foreword, Glossary, Index, Loi, Lot, Notes, Preface, Text,
+                        TitlePage, Toc,
+                    };
                     let reftype = match *reftype {
                         Cover => "cover",
                         Text => "bodymatter",
@@ -562,21 +605,21 @@ impl<Z: Zip> EpubBuilder<Z> {
             .insert_str("generator", self.metadata.generator.as_str())
             .insert_str(
                 "landmarks",
-                if !landmarks.is_empty() {
+                if landmarks.is_empty() {
+                    String::new()
+                } else {
                     common::indent(
                         format!("<ol>\n{}\n</ol>", common::indent(landmarks.join("\n"), 1)),
                         2,
                     )
-                } else {
-                    String::new()
                 },
             )
             .build();
 
         let mut res = vec![];
         let eh = match self.version {
-            EpubVersion::V20 => templates::v2::NAV_XHTML.render_data(&mut res, &data),
-            EpubVersion::V30 => templates::v3::NAV_XHTML.render_data(&mut res, &data),
+            Version::V20 => templates::v2::NAV_XHTML.render_data(&mut res, &data),
+            Version::V30 => templates::v3::NAV_XHTML.render_data(&mut res, &data),
         };
 
         eh.wrap_err("error rendering nav.xhtml template")?;

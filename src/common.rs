@@ -2,18 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with
 // this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use once_cell::sync::Lazy;
-use regex::Regex;
-
 use std::borrow::Cow;
 
 /// Escape quotes from the string
 pub fn escape_quote<'a, S: Into<Cow<'a, str>>>(s: S) -> Cow<'a, str> {
-    static REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r#"""#).expect("This is a valid regexp"));
-
     let s = s.into();
-    if REGEX.is_match(&s) {
-        let res = REGEX.replace_all(&s, "&quot;").into_owned();
+    if s.contains('"') {
+        let res = s.replace('"', "&quot;");
         Cow::Owned(res)
     } else {
         s
@@ -25,10 +20,10 @@ pub fn indent<S: AsRef<str>>(s: S, level: usize) -> String {
     s.as_ref()
         .lines()
         .map(|line| {
-            if !line.is_empty() {
-                format!("{:>spaces$}{}", " ", line, spaces = level * 2)
-            } else {
+            if line.is_empty() {
                 line.into()
+            } else {
+                format!("{:>spaces$}{}", " ", line, spaces = level * 2)
             }
         })
         .collect::<Vec<String>>()
@@ -36,7 +31,7 @@ pub fn indent<S: AsRef<str>>(s: S, level: usize) -> String {
 }
 
 #[test]
-#[allow(clippy::blacklisted_name)]
+#[allow(clippy::disallowed_names)]
 fn test_escape() {
     let foo = "Some string with \"quote\"";
     assert_eq!(&escape_quote(foo), "Some string with &quot;quote&quot;");
@@ -46,7 +41,7 @@ fn test_escape() {
 }
 
 #[test]
-#[allow(clippy::blacklisted_name)]
+#[allow(clippy::disallowed_names)]
 fn test_indent() {
     let foo = "Some string with only one line";
     assert_eq!(indent(foo, 3), "      Some string with only one line");

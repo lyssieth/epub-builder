@@ -23,7 +23,7 @@ use epub_builder::Result;
 use epub_builder::ZipLibrary;
 use epub_builder::EpubContent;
 use epub_builder::ReferenceType;
-use epub_builder::TocElement;
+use epub_builder::Element;
 
 use std::io::Write;
 
@@ -61,7 +61,7 @@ fn run() -> Result<Vec<u8>> {
     // Add a second chapter; this one has more toc information about its internal structure
         .add_content(EpubContent::new("chapter_2.xhtml", dummy_content.as_bytes())
                      .title("Chapter 2")
-                     .child(TocElement::new("chapter_2.xhtml#1", "Chapter 2, section 1")))?
+                     .child(Element::new("chapter_2.xhtml#1", "Chapter 2, section 1")))?
     // Add a section. Since its level is set to 2, it will be attached to the previous chapter.
         .add_content(EpubContent::new("section.xhtml", dummy_content.as_bytes())
                      .title("Chapter 2, section 2")
@@ -86,20 +86,20 @@ fn main() {
 `epub-builder`'s aim is to make EPUB generation simpler. It takes care of zipping
 the files and generate the following ones:
 
-* `mimetype`
-* `toc.ncx`
-* `nav.xhtml`
-* `manifest.xml`
-* `content.opf`
-* `com.apple.ibooks.display-options.xml`.
+- `mimetype`
+- `toc.ncx`
+- `nav.xhtml`
+- `manifest.xml`
+- `content.opf`
+- `com.apple.ibooks.display-options.xml`.
 
 It also tries to make it easier to have a correct table of contents, and optionally
 generate an inline one in the document.
 
 Supported EPUB versions:
 
-* 2.0.1 (default)
-* 3.0.1
+- 2.0.1 (default)
+- 3.0.1
 
 ### Missing features
 

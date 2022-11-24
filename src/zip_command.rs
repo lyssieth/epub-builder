@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with
 // this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::zip::Zip;
+use crate::{zip::Zip, Result};
 
 use std::fs;
 use std::fs::DirBuilder;
@@ -14,9 +14,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
-use eyre::bail;
-use eyre::Context;
-use eyre::Result;
+use color_eyre::eyre::bail;
+use color_eyre::eyre::Context;
 use tempdir::TempDir;
 
 /// Zip files using the system `zip` command.
@@ -36,10 +35,12 @@ pub struct ZipCommand {
 }
 
 impl ZipCommand {
-    /// Creates a new ZipCommand, using default setting to create a temporary directory.
-    pub fn new() -> Result<ZipCommand> {
+    /// Creates a new `ZipCommand`, using default setting to create a temporary directory.
+    ///
+    /// # Errors
+    pub fn new() -> Result<Self> {
         let temp_dir = TempDir::new("epub").wrap_err("could not create temporary directory")?;
-        let zip = ZipCommand {
+        let zip = Self {
             command: String::from("zip"),
             temp_dir,
             files: vec![],
@@ -47,14 +48,16 @@ impl ZipCommand {
         Ok(zip)
     }
 
-    /// Creates a new ZipCommand, specifying where to create a temporary directory.
+    /// Creates a new `ZipCommand`, specifying where to create a temporary directory.
     ///
     /// # Arguments
     /// * `temp_path`: the path where a temporary directory should be created.
-    pub fn new_in<P: AsRef<Path>>(temp_path: P) -> Result<ZipCommand> {
+    ///
+    /// # Errors
+    pub fn new_in<P: AsRef<Path>>(temp_path: P) -> Result<Self> {
         let temp_dir =
             TempDir::new_in(temp_path, "epub").wrap_err("could not create temporary directory")?;
-        let zip = ZipCommand {
+        let zip = Self {
             command: String::from("zip"),
             temp_dir,
             files: vec![],
@@ -69,6 +72,8 @@ impl ZipCommand {
     }
 
     /// Test that zip command works correctly (i.e program is installed)
+    ///
+    /// # Errors
     pub fn test(&self) -> Result<()> {
         let output = Command::new(&self.command)
             .current_dir(self.temp_dir.path())
@@ -93,7 +98,7 @@ impl ZipCommand {
             // dir does not exist, create it
             DirBuilder::new()
                 .recursive(true)
-                .create(&dest_dir)
+                .create(dest_dir)
                 .wrap_err_with(|| {
                     format!(
                         "could not create temporary directory in {path}",
@@ -188,7 +193,11 @@ fn zip_creation() {
 fn zip_ok() {
     let command = ZipCommand::new().unwrap();
     let res = command.test();
-    assert!(res.is_ok());
+    assert!(
+        res.is_ok(),
+        "zip command should be available: {}",
+        res.unwrap_err()
+    );
 }
 
 #[test]

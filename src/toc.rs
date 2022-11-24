@@ -8,13 +8,13 @@ use crate::common;
 /// # Example
 ///
 /// ```
-/// use epub_builder::TocElement;
-/// TocElement::new("chapter_1.xhtml", "Chapter 1")
-///     .child(TocElement::new("chapter_1.xhtml#1", "Chapter 1, section 1")
-///               .child(TocElement::new("chapter_1.xhtml#1-1", "Chapter 1, section 1, subsection 1")));
+/// use epub_builder::Element;
+/// Element::new("chapter_1.xhtml", "Chapter 1")
+///     .child(Element::new("chapter_1.xhtml#1", "Chapter 1, section 1")
+///               .child(Element::new("chapter_1.xhtml#1-1", "Chapter 1, section 1, subsection 1")));
 /// ```
 #[derive(Debug, Clone)]
-pub struct TocElement {
+pub struct Element {
     /// The level. 0: part, 1: chapter, 2: section, ...
     pub level: i32,
     /// The link
@@ -22,15 +22,15 @@ pub struct TocElement {
     /// Title of this entry
     pub title: String,
     /// Inner elements
-    pub children: Vec<TocElement>,
+    pub children: Vec<Element>,
 }
 
-impl TocElement {
+impl Element {
     /// Creates a new element of the toc
     ///
     /// By default, the element's level is `1` and it has no children.
-    pub fn new<S1: Into<String>, S2: Into<String>>(url: S1, title: S2) -> TocElement {
-        TocElement {
+    pub fn new<S1: Into<String>, S2: Into<String>>(url: S1, title: S2) -> Self {
+        Self {
             level: 1,
             url: url.into(),
             title: title.into(),
@@ -38,8 +38,9 @@ impl TocElement {
         }
     }
 
-    /// Sets the level of a TocElement
-    pub fn level(mut self, level: i32) -> Self {
+    /// Sets the level of a Element
+    #[must_use]
+    pub const fn level(mut self, level: i32) -> Self {
         self.level = level;
         self
     }
@@ -63,14 +64,15 @@ impl TocElement {
     /// # Example
     ///
     /// ```
-    /// use epub_builder::TocElement;
-    /// let elem = TocElement::new("foo.xhtml", "Foo")
-    ///     .child(TocElement::new("bar.xhtml", "Bar")
+    /// use epub_builder::Element;
+    /// let elem = Element::new("foo.xhtml", "Foo")
+    ///     .child(Element::new("bar.xhtml", "Bar")
     ///          .level(42));
     ///
     /// // `Bar`'s level wiss still be `2`.
     /// ```
-    pub fn child(mut self, mut child: TocElement) -> Self {
+    #[must_use]
+    pub fn child(mut self, mut child: Self) -> Self {
         if child.level <= self.level {
             child.level_up(self.level + 1);
         }
@@ -83,8 +85,8 @@ impl TocElement {
     /// This will adds `element` directly to `self` if its level is equal or less
     /// to the last children element; else it will insert it to the last child.
     ///
-    /// See the `add` method of [`Toc](struct.toc.html).
-    pub fn add(&mut self, element: TocElement) {
+    /// See the `add` method of [`Toc`](struct.toc.html).
+    pub fn add(&mut self, element: Self) {
         let mut inserted = false;
         if let Some(ref mut last_elem) = self.children.last_mut() {
             if element.level > last_elem.level {
@@ -99,6 +101,7 @@ impl TocElement {
 
     /// Render element for Epub's toc.ncx format
     #[doc(hidden)]
+    #[must_use]
     pub fn render_epub(&self, mut offset: u32) -> (u32, String) {
         offset += 1;
         let id = offset;
@@ -135,6 +138,7 @@ impl TocElement {
 
     /// Render element as a list element
     #[doc(hidden)]
+    #[must_use]
     pub fn render(&self, numbered: bool) -> String {
         if self.title.is_empty() {
             return String::new();
@@ -173,23 +177,23 @@ impl TocElement {
 
 /// A Table Of Contents
 ///
-/// It basically contains a list of [`TocElement`](struct.TocElement.html)s.
+/// It basically contains a list of [`Element`](struct.Element.html)s.
 ///
 /// # Example
 ///
 /// Creates a Toc, fills it, and render it to HTML:
 ///
 /// ```
-/// use epub_builder::{Toc, TocElement};
+/// use epub_builder::{Toc, Element};
 /// Toc::new()
 ///    // add a level-1 element
-///    .add(TocElement::new("intro.xhtml", "Introduction"))
+///    .add(Element::new("intro.xhtml", "Introduction"))
 ///    // add a level-1 element with children
-///    .add(TocElement::new("chapter_1.xhtml", "Chapter 1")
-///            .child(TocElement::new("chapter_1.xhtml#section1", "1.1: Some section"))
-///            .child(TocElement::new("chapter_1.xhtml#section2", "1.2: another section")))
+///    .add(Element::new("chapter_1.xhtml", "Chapter 1")
+///            .child(Element::new("chapter_1.xhtml#section1", "1.1: Some section"))
+///            .child(Element::new("chapter_1.xhtml#section2", "1.2: another section")))
 ///    // add a level-2 element, which will thus get "attached" to previous level-1 element
-///    .add(TocElement::new("chapter_1.xhtml#section3", "1.3: yet another section")
+///    .add(Element::new("chapter_1.xhtml#section3", "1.3: yet another section")
 ///            .level(2))
 ///    // render the toc (non-numbered list) and returns a string
 ///    .render(false);
@@ -197,24 +201,26 @@ impl TocElement {
 #[derive(Debug, Default)]
 pub struct Toc {
     /// The elements composing the TOC
-    pub elements: Vec<TocElement>,
+    pub elements: Vec<Element>,
 }
 
 impl Toc {
     /// Creates a new, empty, Toc
-    pub fn new() -> Toc {
-        Toc { elements: vec![] }
+    #[must_use]
+    pub const fn new() -> Self {
+        Self { elements: vec![] }
     }
 
     /// Returns `true` if the toc is empty, `false` else.
     ///
     /// Note that `empty` here means that the the toc has zero *or one*
     /// element, since it's still not worth displaying it in this case.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.elements.len() <= 1
     }
 
-    /// Adds a [`TocElement`](struct.TocElement.html) to the Toc.
+    /// Adds a [`Element`](struct.Element.html) to the Toc.
     ///
     /// This will look at the element's level and will insert it as a child of the last
     /// element of the Toc that has an inferior level.
@@ -222,20 +228,20 @@ impl Toc {
     /// # Example
     ///
     /// ```
-    /// # use epub_builder::{Toc, TocElement};
+    /// # use epub_builder::{Toc, Element};
     /// let mut toc = Toc::new();
     /// // Insert an element at default level (1)
-    /// toc.add(TocElement::new("chapter_1.xhtml", "Chapter 1"));
+    /// toc.add(Element::new("chapter_1.xhtml", "Chapter 1"));
     ///
     /// // Insert an element at level 2
-    /// toc.add(TocElement::new("section_1.xhtml", "Section 1")
+    /// toc.add(Element::new("section_1.xhtml", "Section 1")
     ///           .level(2));
     /// // "Section 1" is now a child of "Chapter 1"
     /// ```
     ///
     /// There are some cases where this behaviour might not be what you want; however,
     /// it makes sure that the TOC can still be renderer correctly for HTML and EPUB.
-    pub fn add(&mut self, element: TocElement) -> &mut Self {
+    pub fn add(&mut self, element: Element) -> &mut Self {
         let mut inserted = false;
         if let Some(ref mut last_elem) = self.elements.last_mut() {
             if element.level > last_elem.level {
@@ -287,11 +293,11 @@ impl Toc {
 #[test]
 fn toc_simple() {
     let mut toc = Toc::new();
-    toc.add(TocElement::new("#1", "0.0.1").level(3));
-    toc.add(TocElement::new("#2", "1").level(1));
-    toc.add(TocElement::new("#3", "1.0.1").level(3));
-    toc.add(TocElement::new("#4", "1.1").level(2));
-    toc.add(TocElement::new("#5", "2"));
+    toc.add(Element::new("#1", "0.0.1").level(3));
+    toc.add(Element::new("#2", "1").level(1));
+    toc.add(Element::new("#3", "1.0.1").level(3));
+    toc.add(Element::new("#4", "1.1").level(2));
+    toc.add(Element::new("#5", "2"));
     let actual = toc.render(false);
     let expected = "    <ul>
       <li><a href=\"#1\">0.0.1</a></li>
@@ -310,8 +316,8 @@ fn toc_simple() {
 #[test]
 fn toc_epub_simple() {
     let mut toc = Toc::new();
-    toc.add(TocElement::new("#1", "1"));
-    toc.add(TocElement::new("#2", "2"));
+    toc.add(Element::new("#1", "1"));
+    toc.add(Element::new("#2", "2"));
     let actual = toc.render_epub();
     let expected = "    <navPoint id=\"navPoint-1\">
       <navLabel>
@@ -331,10 +337,10 @@ fn toc_epub_simple() {
 #[test]
 fn toc_epub_simple_sublevels() {
     let mut toc = Toc::new();
-    toc.add(TocElement::new("#1", "1"));
-    toc.add(TocElement::new("#1.1", "1.1").level(2));
-    toc.add(TocElement::new("#2", "2"));
-    toc.add(TocElement::new("#2.1", "2.1").level(2));
+    toc.add(Element::new("#1", "1"));
+    toc.add(Element::new("#1.1", "1.1").level(2));
+    toc.add(Element::new("#2", "2"));
+    toc.add(Element::new("#2.1", "2.1").level(2));
     let actual = toc.render_epub();
     let expected = "    <navPoint id=\"navPoint-1\">
       <navLabel>
@@ -366,9 +372,9 @@ fn toc_epub_simple_sublevels() {
 #[test]
 fn toc_epub_broken_sublevels() {
     let mut toc = Toc::new();
-    toc.add(TocElement::new("#1.1", "1.1").level(2));
-    toc.add(TocElement::new("#2", "2"));
-    toc.add(TocElement::new("#2.1", "2.1").level(2));
+    toc.add(Element::new("#1.1", "1.1").level(2));
+    toc.add(Element::new("#2", "2"));
+    toc.add(Element::new("#2.1", "2.1").level(2));
     let actual = toc.render_epub();
     let expected = "    <navPoint id=\"navPoint-1\">
       <navLabel>
@@ -394,7 +400,7 @@ fn toc_epub_broken_sublevels() {
 #[test]
 fn toc_epub_title_escaped() {
     let mut toc = Toc::new();
-    toc.add(TocElement::new("#1", "D&D"));
+    toc.add(Element::new("#1", "D&D"));
     let actual = toc.render_epub();
     let expected = "    <navPoint id=\"navPoint-1\">
       <navLabel>
