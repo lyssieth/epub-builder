@@ -69,9 +69,9 @@ impl Zip for ZipLibrary {
         let options = FileOptions::default();
         self.writer
             .start_file(file.clone(), options)
-            .wrap_err_with(|| format!("could not create file '{}' in epub", file))?;
+            .wrap_err_with(|| format!("could not create file '{file}' in epub"))?;
         io::copy(&mut content, &mut self.writer)
-            .wrap_err_with(|| format!("could not write file '{}' in epub", file))?;
+            .wrap_err_with(|| format!("could not write file '{file}' in epub"))?;
         Ok(())
     }
 

@@ -426,13 +426,13 @@ impl<Z: Zip> Builder<Z> {
         log::debug!("render_opf...");
         let mut optional: Vec<String> = Vec::new();
         for desc in &self.metadata.description {
-            optional.push(format!("<dc:description>{}</dc:description>", desc));
+            optional.push(format!("<dc:description>{desc}</dc:description>"));
         }
         for subject in &self.metadata.subject {
-            optional.push(format!("<dc:subject>{}</dc:subject>", subject));
+            optional.push(format!("<dc:subject>{subject}</dc:subject>"));
         }
         if let Some(ref rights) = self.metadata.license {
-            optional.push(format!("<dc:rights>{}</dc:rights>", rights));
+            optional.push(format!("<dc:rights>{rights}</dc:rights>"));
         }
         let date = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
         let uuid = uuid::fmt::Urn::from_uuid(uuid::Uuid::new_v4()).to_string();
@@ -465,7 +465,7 @@ impl<Z: Zip> Builder<Z> {
                 href = content.file.replace('\\', "/")
             ));
             if content.itemref {
-                itemrefs.push(format!("<itemref idref=\"{id}\"/>", id = id));
+                itemrefs.push(format!("<itemref idref=\"{id}\"/>"));
             }
             if let Some(reftype) = content.reftype {
                 use crate::ReferenceType::{
@@ -631,9 +631,9 @@ impl<Z: Zip> Builder<Z> {
 // Ordering to to look as similar as possible to the W3 Recommendation ruleset
 // Slightly more permissive, there are some that are invalid start chars, but this is ok.
 fn is_id_char(c: char) -> bool {
-    ('A'..='Z').contains(&c)
+    c.is_ascii_uppercase()
         || c == '_'
-        || ('a'..='z').contains(&c)
+        || c.is_ascii_lowercase()
         || ('\u{C0}'..='\u{D6}').contains(&c)
         || ('\u{D8}'..='\u{F6}').contains(&c)
         || ('\u{F8}'..='\u{2FF}').contains(&c)
@@ -648,7 +648,7 @@ fn is_id_char(c: char) -> bool {
         || ('\u{10000}'..='\u{EFFFF}').contains(&c)
         || c == '-'
         || c == '.'
-        || ('0'..='9').contains(&c)
+        || c.is_ascii_digit()
         || c == '\u{B7}'
         || ('\u{0300}'..='\u{036F}').contains(&c)
         || ('\u{203F}'..='\u{2040}').contains(&c)

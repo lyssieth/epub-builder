@@ -21,7 +21,7 @@ zip-library = ["libzip"]
 
 [dependencies]
 mustache = "0.9"
-once_cell = "1.16.0"
+once_cell = "1.17.1"
 chrono = "0.4"
 uuid = { version = "1", features = ["v4"] }
 tempdir = { version = "0.3", optional = true }
@@ -29,7 +29,7 @@ libzip = { version = "0.6", optional = true, default-features = false, features 
     "time",
 ], package = "zip" }
 regex = "1"
-html-escape = "0.2.12"
+html-escape = "0.2.13"
 log = "0.4"
 color-eyre = "0.6.2"
 
